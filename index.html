@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Номын сангийн бүртгэл</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+Mongolian&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0a0a0f;
+    --bg2:       #111118;
+    --bg3:       #1a1a24;
+    --border:    #2a2a3a;
+    --accent:    #4f8ef7;
+    --accent2:   #7c4dff;
+    --success:   #00c896;
+    --danger:    #ff4d6d;
+    --warning:   #ffb020;
+    --text:      #e8e8f0;
+    --muted:     #6b6b8a;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .header-text h1 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+
+  .header-text p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: var(--mono);
+  }
+
+  /* Card */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(79,142,247,0.4), transparent);
+  }
+
+  .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    font-family: var(--mono);
+  }
+
+  /* Scanner */
+  #scanner-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 1;
+    width: 100%;
+  }
+
+  #qr-reader {
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  #qr-reader video {
+    border-radius: 12px !important;
+    width: 100% !important;
+  }
+
+  #qr-reader img { display: none !important; }
+  #qr-reader__dashboard_section_swaplink { display: none !important; }
+  #qr-reader__status_span {
+    color: var(--muted) !important;
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+  }
+  #qr-reader__dashboard { padding: 8px 0 0 !important; }
+  #qr-reader__camera_permission_button,
+  #qr-reader__camera_selection { display: none !important; }
+
+  /* Scanner overlay */
+  .scanner-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .scan-frame {
+    width: 200px; height: 200px;
+    position: relative;
+  }
+
+  .scan-frame::before,
+  .scan-frame::after,
+  .scan-frame span::before,
+  .scan-frame span::after {
+    content: '';
+    position: absolute;
+    width: 28px; height: 28px;
+    border-color: var(--accent);
+    border-style: solid;
+  }
+
+  .scan-frame::before  { top:0; left:0;  border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scan-frame::after   { top:0; right:0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scan-frame span::before { bottom:0; left:0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .scan-frame span::after  { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+
+  .scan-line {
+    position: absolute;
+    left: 10px; right: 10px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scanAnim 2s ease-in-out infinite;
+    top: 10px;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  @keyframes scanAnim {
+    0%   { top: 10px;  opacity: 1; }
+    50%  { top: 180px; opacity: 1; }
+    100% { top: 10px;  opacity: 1; }
+  }
+
+  /* Scan button */
+  .btn-scan {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: rgba(79,142,247,0.08);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-scan:hover {
+    background: rgba(79,142,247,0.15);
+    box-shadow: 0 0 20px rgba(79,142,247,0.15);
+  }
+
+  .btn-scan.active {
+    background: rgba(255,77,109,0.1);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  /* Result badge */
+  .scan-result {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,200,150,0.08);
+    border: 1px solid rgba(0,200,150,0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 10px;
+  }
+
+  .scan-result.show { display: flex; }
+
+  .scan-result-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+    animation: pulse 1.5s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(0.8); }
+  }
+
+  .scan-result-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--success);
+  }
+
+  /* Form */
+  .field { margin-bottom: 14px; }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+    font-family: var(--mono);
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+  }
+
+  .field input.filled {
+    border-color: rgba(0,200,150,0.4);
+    background: rgba(0,200,150,0.05);
+    color: var(--success);
+    font-family: var(--mono);
+    font-weight: 600;
+  }
+
+  .field select option { background: var(--bg3); }
+
+  /* Action tabs */
+  .action-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .action-tab {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .action-tab.selected-avsan {
+    border-color: var(--accent);
+    background: rgba(79,142,247,0.1);
+    color: var(--accent);
+  }
+
+  .action-tab.selected-butsaasan {
+    border-color: var(--success);
+    background: rgba(0,200,150,0.1);
+    color: var(--success);
+  }
+
+  /* Submit */
+  .btn-submit {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(79,142,247,0.3);
+  }
+
+  .btn-submit:active { transform: translateY(0); }
+
+  .btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-submit .loading {
+    display: none;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 260px;
+    max-width: 340px;
+    z-index: 999;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: rgba(0,200,150,0.4); }
+  .toast.error   { border-color: rgba(255,77,109,0.4); }
+
+  .toast-icon { font-size: 18px; }
+
+  /* URL config */
+  .url-config {
+    background: rgba(255,176,32,0.06);
+    border: 1px solid rgba(255,176,32,0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+
+  .url-config p {
+    font-size: 11px;
+    color: var(--warning);
+    font-family: var(--mono);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .url-config input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg3);
+    border: 1px solid rgba(255,176,32,0.3);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    outline: none;
+  }
+
+  .url-config input:focus {
+    border-color: var(--warning);
+  }
+
+  /* Log */
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .log-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .log-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .log-dot.avsan    { background: var(--accent); }
+  .log-dot.butsaasan { background: var(--success); }
+
+  .log-info { flex: 1; min-width: 0; }
+  .log-name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .log-time { font-size: 10px; color: var(--muted); font-family: var(--mono); flex-shrink: 0; }
+
+  .empty-log {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">📚</div>
+    <div class="header-text">
+      <h1>Номын сангийн бүртгэл</h1>
+      <p>QR SCAN SYSTEM v1.0</p>
+    </div>
+  </div>
+
+  <!-- Apps Script URL тохиргоо -->
+  <div class="url-config">
+    <p>⚙ APPS SCRIPT WEB APP URL</p>
+    <input type="url" id="scriptUrl" placeholder="https://script.google.com/macros/s/..." />
+  </div>
+
+  <!-- QR Скан -->
+  <div class="card">
+    <div class="card-label">📷 QR код скан</div>
+    <div id="scanner-wrap">
+      <div id="qr-reader"></div>
+      <div class="scanner-overlay">
+        <div class="scan-frame">
+          <span></span>
+          <div class="scan-line"></div>
+        </div>
+      </div>
+    </div>
+    <div class="scan-result" id="scanResult">
+      <div class="scan-result-dot"></div>
+      <div class="scan-result-text" id="scanResultText">Скан амжилттай</div>
+    </div>
+    <button class="btn-scan" id="btnScan" onclick="toggleScanner()">
+      <span id="scanBtnIcon">▶</span>
+      <span id="scanBtnText">Камер асаах</span>
+    </button>
+  </div>
+
+  <!-- Бүртгэлийн форм -->
+  <div class="card">
+    <div class="card-label">📝 Бүртгэлийн мэдээлэл</div>
+
+    <div class="field">
+      <label>Номын ID</label>
+      <input type="text" id="bookId" placeholder="BOOK0001 — QR скан хийхэд автоматаар дүүрнэ" readonly />
+    </div>
+
+    <div class="field">
+      <label>Сурагчийн ID (заавал биш)</label>
+      <input type="text" id="stuId" placeholder="STU0001" />
+    </div>
+
+    <div class="field">
+      <label>Сурагчийн нэр</label>
+      <input type="text" id="stuName" placeholder="Овог нэрээ оруулна уу" />
+    </div>
+
+    <div class="field">
+      <label>Анги / Бүлэг</label>
+      <select id="grade">
+        <option value="">— Сонгоно уу —</option>
+        <option>1А</option><option>1Б</option><option>1В</option><option>1Г</option>
+        <option>2А</option><option>2Б</option><option>2В</option><option>2Г</option>
+        <option>3А</option><option>3Б</option><option>3В</option><option>3Г</option>
+        <option>4А</option><option>4Б</option><option>4В</option><option>4Г</option>
+        <option>5А</option><option>5Б</option><option>5В</option><option>5Г</option>
+        <option>6А</option><option>6Б</option><option>6В</option><option>6Г</option>
+        <option>7А</option><option>7Б</option><option>7В</option><option>7Г</option>
+        <option>8А</option><option>8Б</option><option>8В</option><option>8Г</option>
+        <option>9А</option><option>9Б</option><option>9В</option><option>9Г</option>
+        <option>10А</option><option>10Б</option><option>10В</option><option>10Г</option>
+        <option>11А</option><option>11Б</option><option>11В</option><option>11Г</option>
+        <option>12А</option><option>12Б</option><option>12В</option><option>12Г</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Үйлдэл</label>
+      <div class="action-tabs">
+        <div class="action-tab selected-avsan" id="tab-avsan" onclick="selectAction('Авсан')">📖 Авсан</div>
+        <div class="action-tab" id="tab-butsaasan" onclick="selectAction('Буцаасан')">✅ Буцаасан</div>
+      </div>
+    </div>
+
+    <button class="btn-submit" id="btnSubmit" onclick="submitForm()">
+      <span id="btnLabel">Бүртгэх</span>
+      <div class="loading" id="loadingSpinner"></div>
+    </button>
+  </div>
+
+  <!-- Бүртгэлийн лог -->
+  <div class="card">
+    <div class="card-label">🕐 Өнөөдрийн бүртгэл</div>
+    <div class="log-list" id="logList">
+      <div class="empty-log">Бүртгэл байхгүй байна</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+  let scanner = null;
+  let scanning = false;
+  let selectedAction = "Авсан";
+  const logs = [];
+
+  // ── QR SCANNER ────────────────────────────────────────────
+  function toggleScanner() {
+    if (scanning) {
+      stopScanner();
+    } else {
+      startScanner();
+    }
+  }
+
+  function startScanner() {
+    scanner = new Html5Qrcode("qr-reader");
+    const config = {
+      fps: 15,
+      qrbox: { width: 200, height: 200 },
+      aspectRatio: 1.0
+    };
+
+    scanner.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess,
+      () => {}
+    ).then(() => {
+      scanning = true;
+      document.getElementById("btnScan").classList.add("active");
+      document.getElementById("scanBtnIcon").textContent = "⏹";
+      document.getElementById("scanBtnText").textContent = "Камер унтраах";
+    }).catch(err => {
+      showToast("error", "Камер нээхэд алдаа гарлаа: " + err);
+    });
+  }
+
+  function stopScanner() {
+    if (scanner) {
+      scanner.stop().then(() => {
+        scanning = false;
+        document.getElementById("btnScan").classList.remove("active");
+        document.getElementById("scanBtnIcon").textContent = "▶";
+        document.getElementById("scanBtnText").textContent = "Камер асаах";
+      });
+    }
+  }
+
+  function onScanSuccess(decodedText) {
+    // QR агуулгаас ID задлана: "ID:BOOK0001|НОМ:..." эсвэл шууд BOOK0001
+    let bookId = decodedText.trim();
+
+    if (decodedText.includes("ID:")) {
+      const match = decodedText.match(/ID:([^\|]+)/);
+      if (match) bookId = match[1].trim();
+    }
+
+    const bookInput = document.getElementById("bookId");
+    bookInput.value = bookId;
+    bookInput.classList.add("filled");
+
+    const resultEl = document.getElementById("scanResult");
+    const resultText = document.getElementById("scanResultText");
+    resultEl.classList.add("show");
+    resultText.textContent = "Скан амжилттай: " + bookId;
+
+    // Дуу
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch(e) {}
+
+    stopScanner();
+    showToast("success", "QR код уншигдлаа: " + bookId);
+
+    // Нэр талбар руу фокус
+    setTimeout(() => document.getElementById("stuName").focus(), 300);
+  }
+
+  // ── ҮЙЛДЭЛ СОНГОХ ────────────────────────────────────────
+  function selectAction(action) {
+    selectedAction = action;
+    document.getElementById("tab-avsan").className = "action-tab" + (action === "Авсан" ? " selected-avsan" : "");
+    document.getElementById("tab-butsaasan").className = "action-tab" + (action === "Буцаасан" ? " selected-butsaasan" : "");
+  }
+
+  // ── БҮРТГЭХ ───────────────────────────────────────────────
+  async function submitForm() {
+    const scriptUrl = document.getElementById("scriptUrl").value.trim();
+    const bookId    = document.getElementById("bookId").value.trim();
+    const stuName   = document.getElementById("stuName").value.trim();
+    const grade     = document.getElementById("grade").value;
+    const stuId     = document.getElementById("stuId").value.trim();
+
+    if (!scriptUrl) { showToast("error", "Apps Script URL оруулна уу"); return; }
+    if (!bookId)    { showToast("error", "Номын ID байхгүй — QR скан хийнэ үү"); return; }
+    if (!stuName)   { showToast("error", "Сурагчийн нэр оруулна уу"); return; }
+    if (!grade)     { showToast("error", "Анги бүлэг сонгоно уу"); return; }
+
+    // Loading state
+    const btn = document.getElementById("btnSubmit");
+    btn.disabled = true;
+    document.getElementById("btnLabel").style.display = "none";
+    document.getElementById("loadingSpinner").style.display = "block";
+
+    try {
+      const payload = { bookId, stuName, grade, stuId, action: selectedAction };
+
+      const res = await fetch(scriptUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      // no-cors тул response унших боломжгүй — амжилттай гэж үзнэ
+      addLog(bookId, stuName, grade, selectedAction);
+      showToast("success", `✓ ${stuName} — ${bookId} амжилттай бүртгэгдлээ`);
+      resetForm();
+
+    } catch(err) {
+      showToast("error", "Алдаа гарлаа: " + err.message);
+    } finally {
+      btn.disabled = false;
+      document.getElementById("btnLabel").style.display = "block";
+      document.getElementById("loadingSpinner").style.display = "none";
+    }
+  }
+
+  // ── FORM RESET ────────────────────────────────────────────
+  function resetForm() {
+    document.getElementById("bookId").value = "";
+    document.getElementById("bookId").classList.remove("filled");
+    document.getElementById("stuName").value = "";
+    document.getElementById("stuId").value = "";
+    document.getElementById("grade").value = "";
+    document.getElementById("scanResult").classList.remove("show");
+  }
+
+  // ── LOG ───────────────────────────────────────────────────
+  function addLog(bookId, stuName, grade, action) {
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2,"0") + ":" +
+                 now.getMinutes().toString().padStart(2,"0");
+    logs.unshift({ bookId, stuName, grade, action, time });
+    renderLogs();
+  }
+
+  function renderLogs() {
+    const el = document.getElementById("logList");
+    if (logs.length === 0) {
+      el.innerHTML = '<div class="empty-log">Бүртгэл байхгүй байна</div>';
+      return;
+    }
+    el.innerHTML = logs.slice(0, 10).map(l => `
+      <div class="log-item">
+        <div class="log-dot ${l.action === 'Авсан' ? 'avsan' : 'butsaasan'}"></div>
+        <div class="log-info">
+          <div class="log-name">${l.stuName} · ${l.grade}</div>
+          <div class="log-meta">${l.bookId} · ${l.action}</div>
+        </div>
+        <div class="log-time">${l.time}</div>
+      </div>
+    `).join("");
+  }
+
+  // ── TOAST ─────────────────────────────────────────────────
+  function showToast(type, msg) {
+    const toast = document.getElementById("toast");
+    const icon  = document.getElementById("toastIcon");
+    const text  = document.getElementById("toastMsg");
+
+    toast.className = "toast " + type;
+    icon.textContent = type === "success" ? "✓" : "✕";
+    text.textContent = msg;
+    toast.classList.add("show");
+
+    setTimeout(() => toast.classList.remove("show"), 3500);
+  }
+
+  // URL-ийг localStorage-д хадгална
+  window.onload = () => {
+    const saved = localStorage.getItem("appsScriptUrl");
+    if (saved) document.getElementById("scriptUrl").value = saved;
+  };
+
+  document.getElementById("scriptUrl").addEventListener("change", function() {
+    localStorage.setItem("appsScriptUrl", this.value);
+  });
+</script>
+</body>
+</html>
